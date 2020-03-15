@@ -39,7 +39,6 @@ Folder Structure:
 * [ ] `  /Code                      `  The developed work including additional documentation
 
 * [ ] `  /Templates		    `  Templates for Thesis, Presentations and the Declaration required in the Thesis
-*
 
 **Refrences:**
 
