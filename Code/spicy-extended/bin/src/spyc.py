@@ -305,7 +305,6 @@ def nested_funcs(tree,func):
         else:
             print('Error! Function %s not defined' % func)
             exit(1)
-            
         if verbose:
             print('---Nested Functions for %s' % (func.ljust(12,'-')))
             for f in callees:
@@ -377,6 +376,9 @@ if verbose:
 if args.func:
     #if a function to translate was specified on the cmd line, handle it
     func = args.func
+    fp=open("zuzu.txt","w")
+    fp.write(ast.dump(tree))
+    fp.close()
     #setup nested functions 
     (c,h) = nested_funcs(tree,func)
     
@@ -384,6 +386,7 @@ if args.func:
     fp.write('#include <stdint.h>\n')
     fp.write('#include <math.h>\n')
     fp.write('#include <string>\n')
+    fp.write('#include <unordered_map>\n')
     fp.write('using namespace std;\n')
     fp.write(h)
     fp.close()

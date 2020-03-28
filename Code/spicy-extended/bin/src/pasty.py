@@ -113,54 +113,77 @@ class PastY:
         #Process each type of AST node appropriately
         if isinstance(node,ast.Pass):
             res =  self.process_Pass(node)
+            print(1)
         elif isinstance(node,ast.Num):
             res =  self.process_Int(node)
+            print(2)
         elif isinstance(node,ast.Name):
             res =  self.process_Name(node)
+            print(3)
         elif isinstance(node,ast.Str):
             res=self.process_str(node)
+            print(4)
         elif isinstance(node,ast.Continue):
             res =  self.process_Continue(node)
+            print(5)
         elif isinstance(node,ast.Expr):
             res =  self.process_Expr(node)
+            print(6)
         elif isinstance(node,ast.Assign):
             res =  self.process_Assign(node)
+            print(7)
         elif isinstance(node,ast.AugAssign):
             res =  self.process_AugAssign(node)
+            print(8)
         elif isinstance(node,ast.AnnAssign):
             res =  self.process_AnnAssign(node)
+            print(9)
         elif isinstance(node,ast.BinOp):
             res =  self.process_BinOp(node)
+            print(10)
         elif isinstance(node,ast.UnaryOp):
             res =  self.process_UnaryOp(node)
+            print(11)
         elif isinstance(node,ast.BoolOp):
             res =  self.process_BoolOp(node)
+            print(12)
         elif isinstance(node,ast.Call):
             res =  self.process_Call(node)
+            print(13)
         elif isinstance(node,ast.Attribute):
             res =  self.process_Attribute(node)
+            print(14)
         elif isinstance(node,ast.Subscript):
             res =  self.process_Subscript(node)
+            print(15)
         elif isinstance(node,ast.List):
             res =  self.process_List(node)
+            print(16)
         elif isinstance(node,ast.If):
             res =  self.process_If(node)
+            print(23)
         elif isinstance(node,ast.For):
             res =  self.process_For(node)
+            print(22)
         elif isinstance(node,ast.While):
             res =  self.process_While(node)
+            print(21)
         elif isinstance(node,Stmt):
             res =  self.process_Stmt(node)
+            print(17)
         elif isinstance(node,ast.Return):
             res =  self.process_Return(node)
         elif isinstance(node,ast.Compare):
             res =  self.process_Compare(node)
         elif isinstance(node,ast.arg):
             res =  self.process_arg(node)
+            print(18)
         elif isinstance(node,ast.FunctionDef):
             res =  self.process_FunctionDef(node)
+            print(19)
         elif isinstance(node,ast.Module):
             res =  self.process_Module(node)
+            print(20)
 
         else: 
             print ('Error! Unsupported AST node "%s"' % node.__class__.__name__)
@@ -343,7 +366,6 @@ class PastY:
         new.type = 'string'
         return new
 
-
     def _mult(self,vals):
         prod=1
         for v in vals:
@@ -455,7 +477,7 @@ class PastY:
             print('Error! Only For loops with range() supported')
             sys.exit(1)
         iter = self.process_ForIter(target,iter)
-            
+
         body = []
         body_str = ''
         if hasattr(node,'docstring'):
@@ -580,7 +602,6 @@ class PastY:
     #    Processes a function argument into a string
     def process_arg(self,node):
         new = PastY()
-
         new.string = node.arg
         argty = getArg(node)
         new.type = argty
@@ -591,7 +612,6 @@ class PastY:
     #    Processes a list into a string
     def process_List(self,node):
         new = PastY()
-
         elts_str = ''
         if len(node.elts) > 0:
             elts_str = self.process(node.elts[0]).string
@@ -798,8 +818,10 @@ class PastY:
     # process_Assign
     #    Processes an assignment into a string
     def process_Assign(self,node):
+        varhold = []
         new = PastY()
         target = self.process(node.targets[0])
+        varhold.append(target.string)
         if isinstance(node.value,ast.Call) and isinstance(node.value.func,ast.Attribute) and (
             node.value.func.attr == 'ndarray' or node.value.func.attr == 'array'):
             if node.value.func.attr == 'ndarray':
@@ -814,21 +836,33 @@ class PastY:
             else:
                 print('Error! Unsupported assignment')
                 exit(1)
+#**************************weak point************************
+        elif 'Dict' in ast.dump(node):
+            argty = process_dict(node.value)
+            if isinstance(node.value, ast.Dict):
+                new.string = '%s = %s' % (target.string, argty)
+            else:
+                new.string = '%s %s' % (processType(argty), target.string)
         else:
             value = self.process(node.value)
+            if value.type == "string":
+                if value.string == 'str':
+                    new.string = "%s %s" % (value.type, target.string)
+                else:
+                    new.string = "%s = \"%s\"" % (target.string, value.string)
+                return new
             if self.scope.has(target.name):
                 new.string = "%s = %s" % (target.string,value.string)
-
-
             else:
                 self.scope.put(target.name,value.type)
                 if isinstance(value.val,list):
                     size = self.process_ListSize(value)
                     new.string = '%s %s%s = %s' % (target.type,target.string,size,value.string)
-
                 else:
-                    new.string = "%s %s = %s" % (target.type,target.string,value.string)
-
+                    if target.string in varhold:
+                        new.string = "%s = %s" % (target.string, value.string)
+                    else:
+                        new.string = "%s %s = %s" % (target.type,target.string,value.string)
         return new
 
     #######################

@@ -52,7 +52,8 @@
 import re
 import ast
 import sys
-
+from numpy import double
+import itertools
 
 ######################
 # Numpy type map table
@@ -70,34 +71,35 @@ type_info = {'int8'   :['int8_t',  'NPY_INT8',   'B'],
              'double' :['double',  'NPY_FLOAT64','d'],
              'void'   :['void',    'NPY_VOID',   '?'],
              'str'    :['string',  'np.unicode_', 'U'],
-             'Dict[int, str]'   :['std::unodered_map<std::int, std::string>', 'np.unicode_','U'],
-             'Dict[str, str]'   :['std::unodered_map<std::string, std::string>', 'np.unicode_','U'],
-             'Dict[str, int]'   :['std::unodered_map<std::string, std::int>', 'np.unicode_','U'],
-             'Dict[int, int]'   :['std::unodered_map<std::int, std::int>', 'NPY_INT64','L'],
-             'Dict[int, float]' :['std::unodered_map<std::int, std::float>', 'NPY_FLOAT64','d'],
-             'Dict[float, float]' :['std::unodered_map<std::float, std::float>', 'NPY_FLOAT64','d'],
-             'Dict[float, int]'   :['std::unodered_map<std::float, std::int>', 'NPY_FLOAT64','d'],
-             'Dict[string, float]' :['std::unodered_map<std::string, std::float>', 'np.unicode_','U'],
-             'Dict[float, string]'  :['std::unodered_map<std::float, std::string>', 'np.unicode_','U'],
-             'Dict[double, double]' :['std::unodered_map<std::double, std::double>', 'NPY_FLOAT64','d'],
-             'Dict[double, string]' :['std::unodered_map<std::double, std::string>', 'np.unicode_','U'],
-             'Dict[string, double]' :['std::unodered_map<std::string, std::double>', 'np.unicode_','U'],
-             'Dict[int, double]'    :['std::unodered_map<std::int, std::double>', 'NPY_FLOAT64','d'],
-             'Dict[double, int]'    :['std::unodered_map<std::double, std::int>', 'NPY_FLOAT64','d'],
-             'Dict[float, double]'  :['std::unodered_map<std::float, std::double>', 'NPY_FLOAT64','d'],
-             'Dict[double, float]'  :['std::unodered_map<std::double, std::float>', 'NPY_FLOAT64','d'],
+             'Dict[int, str]'   :['std::unordered_map<std::int, std::string>', 'np.unicode_','U'],
+             'Dict[str, str]'   :['std::unordered_map<std::string, std::string>', 'np.unicode_','U'],
+             'Dict[str, int]'   :['std::unordered_map<std::string, std::int>', 'np.unicode_','U'],
+             'Dict[int, int]'   :['std::unordered_map<std::int, std::int>', 'NPY_INT64','L'],
+             'Dict[int, float]' :['std::unordered_map<std::int, std::float>', 'NPY_FLOAT64','d'],
+             'Dict[float, float]' :['std::unordered_map<std::float, std::float>', 'NPY_FLOAT64','d'],
+             'Dict[float, int]'   :['std::unordered_map<std::float, std::int>', 'NPY_FLOAT64','d'],
+             'Dict[string, float]' :['std::unordered_map<std::string, std::float>', 'np.unicode_','U'],
+             'Dict[float, string]'  :['std::unordered_map<std::float, std::string>', 'np.unicode_','U'],
+             'Dict[double, double]' :['std::unordered_map<std::double, std::double>', 'NPY_FLOAT64','d'],
+             'Dict[double, string]' :['std::unordered_map<std::double, std::string>', 'np.unicode_','U'],
+             'Dict[string, double]' :['std::unordered_map<std::string, std::double>', 'np.unicode_','U'],
+             'Dict[int, double]'    :['std::unordered_map<std::int, std::double>', 'NPY_FLOAT64','d'],
+             'Dict[double, int]'    :['std::unordered_map<std::double, std::int>', 'NPY_FLOAT64','d'],
+             'Dict[float, double]'  :['std::unordered_map<std::float, std::double>', 'NPY_FLOAT64','d'],
+             'Dict[double, float]'  :['std::unordered_map<std::double, std::float>', 'NPY_FLOAT64','d'],
              }
 
 ######################
 # Numpy ndarray argument keyword list
 #    inorder argument keyword names
 ndarray_arg_list = ['shape','dtype','buffer','offset','strides','order']
-
 ######################
 # Numpy array argument keyword list
 #    inorder argument keyword names
 array_arg_list = ['object','dtype','copy','order','subok','ndmin']
-
+varkey = []
+varval = []
+varhold = []
 ######################
 # getNPtype
 #    get NumPy type enum for a given data type string
@@ -172,6 +174,7 @@ def getHLSpragmas(string):
 #    process the ndarray arguments to an array constructor
 #      and set them as the appropriate keywords
 def process_ndarray_args(node):
+
     for i in range(len(node.args)):
         arg = node.args[i]
         if i == 2:
@@ -182,9 +185,10 @@ def process_ndarray_args(node):
         k.arg = ndarray_arg_list[i]
         k.value = arg
         node.keywords.append(k)
-    node.args = []          
+    node.args = []
 
 ######################
+
 # process_array_args
 #    process the np.array() arguments to an array constructor
 #      and set them as the appropriate keywords
@@ -256,7 +260,6 @@ def process_ndarray(node):
         print('Example type:')
         print('\tvar:numpy.ndarray(2,\'float\')')
         sys.exit(1)
-        
     return argty
 
 ######################
@@ -276,6 +279,73 @@ def process_array_list(node):
         exit(1)
     return dim
 
+
+def process_dict(node):
+    argty = ArgType()
+    k = ""
+    v = ""
+    m = ""
+    if isinstance(node, ast.Dict):
+        for key in node.keys:
+            if isinstance(key, ast.Str):
+                k = str
+                break
+            elif isinstance(key, ast.Num):
+                if isinstance(key.n, double):
+                    k = double
+                    break
+                elif isinstance(key.n, int):
+                    k = int
+                    break
+        for value in node.values:
+            if isinstance(value, ast.Str):
+                v = str
+                break
+            elif isinstance(value, ast.Num):
+                if isinstance(value.n, double):
+                    v = double
+                    break
+                elif isinstance(value.n, int):
+                    v = int
+                    break
+        for key in node.keys:
+            if isinstance(key, ast.Str) and  isinstance(key.s, k):
+                varkey.append(key.s)
+            elif isinstance(key, ast.Str) and isinstance(key.n, k):
+                varkey.append(key.n)
+            else:
+                print("Key %s is not of valid type, All the Keys and Values should of same type" % (ast.dump(key)))
+                sys.exit(1)
+        for value in node.values:
+            if isinstance(value, ast.Str) and isinstance(value.s, v):
+                varval.append(value.s)
+            elif isinstance(value, ast.Num) and isinstance(value.n, v):
+                varval.append(value.s)
+            else:
+                print("Value %s is not of valid type, All the Keys and Values should of same type" % (ast.dump(value)))
+                sys.exit(1)
+        for i in range(len(varkey)):
+            if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
+                m = m + "{%s, %s}" % (varkey[i], varval[i])
+            else:
+                m = m + "{%s, %s}," % (varkey[i], varval[i])
+        argty = "{%s}" % (m)
+    else:
+        ann = node.slice.value.elts
+        if len(ann) > 2:
+            print('Invalid Dict annotation')
+            print(ast.dump(node))
+            print('Example annotations:')
+            print('\tvar:Dict[\'str\',\'str]')
+            sys.exit(1)
+        arg = node.slice.value.elts
+        x= (arg[0])
+        k = (x.s)
+        y = (arg[1])
+        j = (y.s)
+        z = "Dict[" + k + ", " + j + "]"
+        argty.primitive = z
+    return argty
 ######################
 # process_array
 #    process an np.array argument to a function
@@ -366,6 +436,9 @@ def getType(arg):
         argty.dimensions.append(ann[1])
         argty.primitive = ann[0]
         argty.category = 'list'
+    elif isinstance(arg.annotation,ast.Subscript) and isinstance(arg.annotation.value,ast.Name) and arg.annotation.value.id == 'Dict':
+            argty = process_dict(arg.annotation)
+            argty.category = 'Dict'
     elif arg.annotation == None:
         print('Error! Missing type annotation for arg "%s"' % arg.arg)
         print('Example annotations:')
@@ -533,6 +606,9 @@ class ArgType:
         elif self.category == 'array':
             string = processType(self) + '* ' + self.name
             return string
+        elif self.category == 'Dict':
+            string = processType(self) + ' ' + self.name
+            return string
         else:
             print('Error! Unknown category in ArgType.getPtr: %s' % self.category)
             sys.exit(1)
@@ -550,6 +626,9 @@ class ArgType:
             return string
         elif self.category == 'list':
             string = processType(self) + ' ' + self.name + '[' + str(self.size()) + ']'
+            return string
+        elif self.category == 'Dict':
+            string = processType(self) + ' ' + self.name
             return string
         else:
             print('Error! Unknown category in ArgType.getDecl: %s' % self.category)
@@ -591,7 +670,6 @@ class CallHier:
     def __init__(self):
         call = None
         calls = []
-        
 
 class DefUse:
     def __init__(self,n):
