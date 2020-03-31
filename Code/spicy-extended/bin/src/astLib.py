@@ -52,7 +52,7 @@
 import re
 import ast
 import sys
-from numpy import double
+import numpy as np
 import itertools
 
 ######################
@@ -279,7 +279,6 @@ def process_array_list(node):
         exit(1)
     return dim
 
-
 def process_dict(node):
     argty = ArgType()
     k = ""
@@ -291,8 +290,11 @@ def process_dict(node):
                 k = str
                 break
             elif isinstance(key, ast.Num):
-                if isinstance(key.n, double):
-                    k = double
+                if isinstance(key.n, np.double):
+                    k = np.double
+                    break
+                if isinstance(key.n, np.float):
+                    k = np.float
                     break
                 elif isinstance(key.n, int):
                     k = int
@@ -302,8 +304,11 @@ def process_dict(node):
                 v = str
                 break
             elif isinstance(value, ast.Num):
-                if isinstance(value.n, double):
-                    v = double
+                if isinstance(value.n, np.double):
+                    v =  np.double
+                    break
+                if isinstance(value.n, np.float):
+                    v = np.float
                     break
                 elif isinstance(value.n, int):
                     v = int
@@ -311,7 +316,7 @@ def process_dict(node):
         for key in node.keys:
             if isinstance(key, ast.Str) and  isinstance(key.s, k):
                 varkey.append(key.s)
-            elif isinstance(key, ast.Str) and isinstance(key.n, k):
+            elif isinstance(key, ast.Num) and isinstance(key.n, k):
                 varkey.append(key.n)
             else:
                 print("Key %s is not of valid type, All the Keys and Values should of same type" % (ast.dump(key)))
@@ -320,15 +325,35 @@ def process_dict(node):
             if isinstance(value, ast.Str) and isinstance(value.s, v):
                 varval.append(value.s)
             elif isinstance(value, ast.Num) and isinstance(value.n, v):
-                varval.append(value.s)
+                varval.append(value.n)
             else:
                 print("Value %s is not of valid type, All the Keys and Values should of same type" % (ast.dump(value)))
                 sys.exit(1)
         for i in range(len(varkey)):
-            if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
-                m = m + "{%s, %s}" % (varkey[i], varval[i])
+            if isinstance(varkey[i], str):
+                if isinstance(varval[i], int) or isinstance(varval[i], float):
+                    if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
+                        m = m + "{\"%s\", %s}" % (varkey[i], varval[i])
+                    else:
+                        m = m + "{\"%s\", %s}," % (varkey[i], varval[i])
+                elif isinstance(varval[i], str):
+                    if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
+                        m = m + "{\"%s\", \"%s\"}" % (varkey[i], varval[i])
+                    else:
+                        m = m + "{\"%s\", \"%s\"}," % (varkey[i], varval[i])
+            elif isinstance(varkey[i], int) or isinstance(varkey[i], float):
+                if isinstance(varval[i], int) or isinstance(varval[i], float):
+                    if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
+                        m = m + "{%s, %s}" % (varkey[i], varval[i])
+                    else:
+                        m = m + "{%s, %s}," % (varkey[i], varval[i])
+                elif isinstance(varval[i], str):
+                    if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
+                        m = m + "{%s,\"%s\"}" % (varkey[i], varval[i])
+                    else:
+                        m = m + "{%s, \"%s\"}," % (varkey[i], varval[i])
             else:
-                m = m + "{%s, %s}," % (varkey[i], varval[i])
+                print("Unsupported type for Dict, the supported types are \"String\", \"integer\", \"Float\" ")
         argty = "{%s}" % (m)
     else:
         ann = node.slice.value.elts
