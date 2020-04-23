@@ -53,8 +53,6 @@ import re
 import ast
 import sys
 import numpy as np
-import itertools
-
 ######################
 # Numpy type map table
 #    format ==> numpy_data_type:[ctype,numpy_enum,py_cffi_format]
@@ -78,15 +76,31 @@ type_info = {'int8'   :['int8_t',  'NPY_INT8',   'B'],
              'Dict[int, float]' :['std::unordered_map<std::int, std::float>', 'NPY_FLOAT64','d'],
              'Dict[float, float]' :['std::unordered_map<std::float, std::float>', 'NPY_FLOAT64','d'],
              'Dict[float, int]'   :['std::unordered_map<std::float, std::int>', 'NPY_FLOAT64','d'],
-             'Dict[string, float]' :['std::unordered_map<std::string, std::float>', 'np.unicode_','U'],
-             'Dict[float, string]'  :['std::unordered_map<std::float, std::string>', 'np.unicode_','U'],
+             'Dict[str, float]' :['std::unordered_map<std::string, std::float>', 'np.unicode_','U'],
+             'Dict[float, str]'  :['std::unordered_map<std::float, std::string>', 'np.unicode_','U'],
              'Dict[double, double]' :['std::unordered_map<std::double, std::double>', 'NPY_FLOAT64','d'],
-             'Dict[double, string]' :['std::unordered_map<std::double, std::string>', 'np.unicode_','U'],
-             'Dict[string, double]' :['std::unordered_map<std::string, std::double>', 'np.unicode_','U'],
+             'Dict[double, str]' :['std::unordered_map<std::double, std::string>', 'np.unicode_','U'],
+             'Dict[str, double]' :['std::unordered_map<std::string, std::double>', 'np.unicode_','U'],
              'Dict[int, double]'    :['std::unordered_map<std::int, std::double>', 'NPY_FLOAT64','d'],
              'Dict[double, int]'    :['std::unordered_map<std::double, std::int>', 'NPY_FLOAT64','d'],
              'Dict[float, double]'  :['std::unordered_map<std::float, std::double>', 'NPY_FLOAT64','d'],
              'Dict[double, float]'  :['std::unordered_map<std::double, std::float>', 'NPY_FLOAT64','d'],
+             'Dict[int, list[int]]' :['std::unordered_map<std::int, std::vector<int>>','NPY_INT64','L'],
+             'Dict[str, list[str]]' : ['std::unordered_map<std::string, std::vector<string>>','np.unicode_','U'],
+             'Dict[float, list[float]]': ['std::unordered_map<std::float, std::vector<float>>','NPY_FLOAT64','d'],
+             'Dict[float, list[str]]': ['std::unordered_map<std::float, std::vector<string>>','NPY_FLOAT64','d'],
+            'Dict[float, list[int]]': ['std::unordered_map<std::float, std::vector<int>>','NPY_FLOAT64','d'],
+            'Dict[int, list[float]]': ['std::unordered_map<std::int, std::vector<float>>','NPY_FLOAT64','d'],
+            'Dict[int, list[str]]': ['std::unordered_map<std::int, std::vector<string>>','NPY_INT64','L'],
+            'Dict[str, list[int]]': ['std::unordered_map<std::string, std::vector<int>>','NPY_INT64','L'],
+            'Dict[str, list[float]]': ['std::unordered_map<std::string, std::vector<float>>','NPY_INT64','L'],
+            'Dict[double, list[double]]': ['std::unordered_map<std::double, std::vector<double>>','NPY_FLOAT64','d'],
+            'Dict[double, list[str]]': ['std::unordered_map<std::double, std::vector<string>>','NPY_FLOAT64','d'],
+            'Dict[double, list[int]]': ['std::unordered_map<std::double, std::vector<int>>','NPY_FLOAT64','d'],
+            'Dict[double, list[float]]': ['std::unordered_map<std::double, std::vector<float>>','NPY_FLOAT64','d'],
+            'Dict[int, list[double]]': ['std::unordered_map<std::int, std::vector<double>>','NPY_FLOAT64','d'],
+            'Dict[str, list[double]]': ['std::unordered_map<std::string, std::vector<double>>','NPY_FLOAT64','d'],
+            'Dict[float, list[double]]': ['std::unordered_map<std::double, std::vector<double>>','NPY_FLOAT64','d'],
              }
 
 ######################
@@ -284,6 +298,11 @@ def process_dict(node):
     k = ""
     v = ""
     m = ""
+    x = ""
+    temp = ""
+    test = ""
+    check = ""
+    valtemp = []
     if isinstance(node, ast.Dict):
         for key in node.keys:
             if isinstance(key, ast.Str):
@@ -313,6 +332,16 @@ def process_dict(node):
                 elif isinstance(value.n, int):
                     v = int
                     break
+            elif isinstance(value, ast.List):
+                if isinstance(value.elts[0], ast.Str):
+                    v = str
+                elif isinstance(value.elts[0], ast.Num):
+                    if isinstance(value.elts[0].n, float):
+                        v = float
+                        break
+                    elif isinstance(value.elts[0].n, int):
+                        v = int
+                        break
         for key in node.keys:
             if isinstance(key, ast.Str) and  isinstance(key.s, k):
                 varkey.append(key.s)
@@ -322,16 +351,46 @@ def process_dict(node):
                 print("Key %s is not of valid type, All the Keys and Values should of same type" % (ast.dump(key)))
                 sys.exit(1)
         for value in node.values:
-            if isinstance(value, ast.Str) and isinstance(value.s, v):
+            if isinstance(value, ast.List):
+                for i in range(len(value.elts)):
+                    if isinstance(value.elts[i], ast.Str) and isinstance(value.elts[i].s, v):
+                        if value.elts.index(value.elts[i]) == value.elts.index(value.elts[-1]):
+                            test = test + "\"%s\"" % value.elts[i].s
+                            temp = "{%s}" % test
+                            varval.append(temp)
+                            test = ""
+                            temp = ""
+                            check = "string"
+                        else:
+                            test = test + "\"%s\"," % value.elts[i].s
+                            check = "string"
+                    elif isinstance(value.elts[i], ast.Num) and isinstance(value.elts[i].n, v):
+                        if value.elts.index(value.elts[i]) == value.elts.index(value.elts[-1]):
+                            test = test + "%s" % value.elts[i].n
+                            temp = "{%s}" % test
+                            varval.append(temp)
+                            test = ""
+                            temp = ""
+                            check = "integer"
+                        else:
+                            test = test + "%s," % value.elts[i].n
+                            check = "integer"
+                    else:
+                        print("Value %s is not of valid type, All the Keys and Values should of same type" % (
+                            ast.dump(value)))
+                        sys.exit(1)
+            elif isinstance(value, ast.Str) and isinstance(value.s, v):
                 varval.append(value.s)
             elif isinstance(value, ast.Num) and isinstance(value.n, v):
                 varval.append(value.n)
-            else:
-                print("Value %s is not of valid type, All the Keys and Values should of same type" % (ast.dump(value)))
-                sys.exit(1)
         for i in range(len(varkey)):
             if isinstance(varkey[i], str):
-                if isinstance(varval[i], int) or isinstance(varval[i], float):
+                if isinstance(node.values[0], ast.List):
+                    if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
+                        m = m + "{\"%s\", %s}" % (varkey[i], varval[i])
+                    else:
+                        m = m + "{\"%s\", %s}," % (varkey[i], varval[i])
+                elif isinstance(varval[i], int) or isinstance(varval[i], float):
                     if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
                         m = m + "{\"%s\", %s}" % (varkey[i], varval[i])
                     else:
@@ -342,7 +401,12 @@ def process_dict(node):
                     else:
                         m = m + "{\"%s\", \"%s\"}," % (varkey[i], varval[i])
             elif isinstance(varkey[i], int) or isinstance(varkey[i], float):
-                if isinstance(varval[i], int) or isinstance(varval[i], float):
+                if isinstance(node.values[0], ast.List):
+                    if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
+                        m = m + "{%s, %s}" % (varkey[i], varval[i])
+                    else:
+                        m = m + "{%s, %s}," % (varkey[i], varval[i])
+                elif isinstance(varval[i], int) or isinstance(varval[i], float):
                     if varkey.index(varkey[i]) == varkey.index(varkey[-1]):
                         m = m + "{%s, %s}" % (varkey[i], varval[i])
                     else:

@@ -97,7 +97,6 @@ def convert_func(node):
 
     #write out C code to cpp file
     code = convert_code(node) + '\n'
-
     return (code,header)
 
 ##########################
