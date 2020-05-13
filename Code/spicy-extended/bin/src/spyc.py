@@ -58,7 +58,6 @@ import os
 from pasty import *
 from passes import *
 from astmonkey import visitors, transformers
-import pydot
 
 ##########################
 # convertFunc
@@ -361,18 +360,20 @@ fp = open(file)
 code = fp.read()
 fp.close()
 
+word = "#VisualizeAst"
+visualize = ""
+if word in code:
+    visualize = "True"
 
 #parse python code into abstract syntax tree
 tree = ast.parse(code)
-node = tree
-node = transformers.ParentChildNodeTransformer().visit(node)
-visitor = visitors.GraphNodeVisitor()
-visitor.visit(node)
-visitor.graph.write_png('graph.png')
-#root = defuse_pass(tree)
-#graph = root.getGraph()
-#root.printGraph(graph)
-#root.showGraph(graph)
+
+if visualize == "True":
+    node = tree
+    node = transformers.ParentChildNodeTransformer().visit(node)
+    visitor = visitors.GraphNodeVisitor()
+    visitor.visit(node)
+    visitor.graph.write_png('Ast_Tree_for_the_code.png')
 
 if verbose:
     print ('Compiling file: ' + file)

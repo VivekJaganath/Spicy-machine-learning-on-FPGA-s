@@ -9,6 +9,10 @@ void mmult(int32_t a[1024],int32_t b[1024],int32_t c[1024],std::set<int> x) {
    int32_t B_tmp[1024];
    std::set<string> c_tmp;
    c_tmp = {"hello", "world", "beautiful"};
+   std::set<int> d_tmp;
+   d_tmp = {1, 2, 3, 4};
+   std::set<float> e_tmp;
+   e_tmp = {1.252, 3.454, 4.7787};
 #pragma HLS array_partition variable=A_tmp cyclic factor=16 dim=1
 #pragma HLS array_partition variable=B_tmp block factor=16 dim=1
 

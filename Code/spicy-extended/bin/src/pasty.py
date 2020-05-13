@@ -103,7 +103,6 @@ class PastY:
     #    Processes an AST node and produces a PastY node with 
     #    C/C++ string representation
     def process(self,node):
-
         if self.verbose:
             print ("Processing %s" % getClname(node))
             print(astpp.dump(node))

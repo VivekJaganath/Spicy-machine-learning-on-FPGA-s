@@ -130,7 +130,7 @@ type_info = {'int8'   :['int8_t',  'NPY_INT8',   'B'],
             'Tuple[float, str, float]': ['tuple<float, char, float>', 'NPY_FLOAT64', 'd'],
             'Set[str]': ['std::set<string>', 'np.unicode_','U'],
             'Set[int]': ['std::set<int>', 'NPY_INT64','L'],
-            'Set[float]': ['std::set<float>', 'NPY_INT64','L'],
+            'Set[float]': ['std::set<float>', 'NPY_FLOAT64', 'd'],
              }
 
 ######################
@@ -344,7 +344,7 @@ def process_set(node):
                         m = m + "\"%s\"" % varval[i]
                     else:
                         m = m + "\"%s\", " % varval[i]
-                elif isinstance(varval[i], int):
+                elif isinstance(varval[i], int) or isinstance(varval[i], float):
                     if varval.index(varval[i]) == varval.index(varval[-1]):
                         m = m + "%s" % varval[i]
                     else:
@@ -357,13 +357,16 @@ def process_set(node):
                 print('c_tmp = {\'Hello\', \'world\'}')
                 sys.exit(1)
         argty = "{%s}" % m
+        varval.clear()
     else:
         ann = node.slice.value.value
-        if len(ann) > 4:
+        if len(ann) > 5:
             print('Invalid Set annotation')
             print(ast.dump(node))
             print('Example annotations:')
             print('\tvar:Set[\'str\']')
+            print('\tvar:Set[\'int\']')
+            print('\tvar:Set[\'float\']')
             sys.exit(1)
         arg = node.slice.value.value
         z = "Set[" + arg + "]"

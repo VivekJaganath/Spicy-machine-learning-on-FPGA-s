@@ -3,7 +3,7 @@ import numpy as np
 from typing import Dict, Tuple, Set
 import code
 
-#VisualizeAst
+
 # Function to be translated (function under test)
 def mmult(a: np.ndarray((32, 32), 'int32'),
           b: np.ndarray((32, 32), 'int32'),
