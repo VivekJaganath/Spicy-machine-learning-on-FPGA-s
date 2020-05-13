@@ -54,6 +54,9 @@ from astLib import *
 #   A new class object to represent nodes of the AST
 #   main usage is string field which hold string 
 #   representation of C/C++ syntax
+from bin.src import astLib
+
+
 class PastY:
     def __init__(self,init_str=''):
         self.val = ''
@@ -113,78 +116,54 @@ class PastY:
         #Process each type of AST node appropriately
         if isinstance(node,ast.Pass):
             res =  self.process_Pass(node)
-            print(1)
         elif isinstance(node,ast.Num):
             res =  self.process_Int(node)
-            print(2)
         elif isinstance(node,ast.Name):
             res =  self.process_Name(node)
-            print(3)
         elif isinstance(node,ast.Str):
             res=self.process_str(node)
-            print(4)
         elif isinstance(node,ast.Continue):
             res =  self.process_Continue(node)
-            print(5)
         elif isinstance(node,ast.Expr):
             res =  self.process_Expr(node)
-            print(6)
         elif isinstance(node,ast.Assign):
             res =  self.process_Assign(node)
-            print(7)
         elif isinstance(node,ast.AugAssign):
             res =  self.process_AugAssign(node)
-            print(8)
         elif isinstance(node,ast.AnnAssign):
             res =  self.process_AnnAssign(node)
-            print(9)
         elif isinstance(node,ast.BinOp):
             res =  self.process_BinOp(node)
-            print(10)
         elif isinstance(node,ast.UnaryOp):
             res =  self.process_UnaryOp(node)
-            print(11)
         elif isinstance(node,ast.BoolOp):
             res =  self.process_BoolOp(node)
-            print(12)
         elif isinstance(node,ast.Call):
             res =  self.process_Call(node)
-            print(13)
         elif isinstance(node,ast.Attribute):
             res =  self.process_Attribute(node)
-            print(14)
         elif isinstance(node,ast.Subscript):
             res =  self.process_Subscript(node)
-            print(15)
         elif isinstance(node,ast.List):
             res =  self.process_List(node)
-            print(16)
         elif isinstance(node,ast.If):
             res =  self.process_If(node)
-            print(23)
         elif isinstance(node,ast.For):
             res =  self.process_For(node)
-            print(22)
         elif isinstance(node,ast.While):
             res =  self.process_While(node)
-            print(21)
         elif isinstance(node,Stmt):
             res =  self.process_Stmt(node)
-            print(17)
         elif isinstance(node,ast.Return):
             res =  self.process_Return(node)
         elif isinstance(node,ast.Compare):
             res =  self.process_Compare(node)
         elif isinstance(node,ast.arg):
             res =  self.process_arg(node)
-            print(18)
         elif isinstance(node,ast.FunctionDef):
             res =  self.process_FunctionDef(node)
-            print(19)
         elif isinstance(node,ast.Module):
             res =  self.process_Module(node)
-            print(20)
-
         else: 
             print ('Error! Unsupported AST node "%s"' % node.__class__.__name__)
             sys.exit(1)
@@ -837,12 +816,24 @@ class PastY:
                 print('Error! Unsupported assignment')
                 exit(1)
 #**************************weak point************************
-        elif 'Dict' in ast.dump(node):
+        elif isinstance(node.value, ast.Dict) or isinstance(node.value, ast.Subscript) and ('Dict' in ast.dump(node.value)):
             argty = process_dict(node.value)
             if isinstance(node.value, ast.Dict):
                 new.string = '%s = %s' % (target.string, argty)
             else:
                 new.string = '%s %s' % (processType(argty), target.string)
+        elif isinstance(node.value, ast.Tuple) or isinstance(node.value, ast.Subscript) and ('Tuple' in ast.dump(node.value)):
+                argty = process_tuple(node.value)
+                if isinstance(node.value, ast.Tuple):
+                    new.string = '%s = %s' % (target.string, argty)
+                else:
+                    new.string = '%s %s' % (processType(argty), target.string)
+        elif isinstance(node.value, ast.Set) or isinstance(node.value, ast.Subscript) and ('Set' in ast.dump(node.value)):
+                argty = process_set(node.value)
+                if isinstance(node.value, ast.Set):
+                    new.string = '%s = %s' % (target.string, argty)
+                else:
+                    new.string = '%s %s' % (processType(argty), target.string)
         else:
             value = self.process(node.value)
             if value.type == "string":

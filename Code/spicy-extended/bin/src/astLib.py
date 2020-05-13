@@ -101,6 +101,36 @@ type_info = {'int8'   :['int8_t',  'NPY_INT8',   'B'],
             'Dict[int, list[double]]': ['std::unordered_map<std::int, std::vector<double>>','NPY_FLOAT64','d'],
             'Dict[str, list[double]]': ['std::unordered_map<std::string, std::vector<double>>','NPY_FLOAT64','d'],
             'Dict[float, list[double]]': ['std::unordered_map<std::double, std::vector<double>>','NPY_FLOAT64','d'],
+            'Tuple[str, str, str]': ['tuple <char, char, char>', 'np.unicode_','U'],
+            'Tuple[int, int, int]': ['tuple<int, int, int>', 'NPY_INT64','L'],
+            'Tuple[float, float, float]': ['tuple<float,float,float>', 'NPY_FLOAT64','d'],
+            'Tuple[str, int, float]': ['tuple<char, int, float>','NPY_FLOAT64','d'],
+            'Tuple[str, float, int]': ['tuple<char, float, int>', 'NPY_FLOAT64', 'd'],
+            'Tuple[int, str, float]': ['tuple<int, char, float>','NPY_FLOAT64', 'd'],
+            'Tuple[int, float, str]': ['tuple<int, float, char>', 'NPY_FLOAT64', 'd'],
+            'Tuple[float, int, str]': ['tuple<float, int, char>', 'NPY_FLOAT64', 'd'],
+            'Tuple[float, str, int]': ['tuple<float, char, int>', 'NPY_FLOAT64', 'd'],
+            'Tuple[str, str, int]': ['tuple<char, char, int>', 'np.unicode_','U'],
+            'Tuple[str, str, float]': ['tuple<char, char, float>', 'np.unicode_','U'],
+            'Tuple[float, str, str]': ['tuple<float, char, char>', 'np.unicode_','U'],
+            'Tuple[int, str, str]': ['tuple<int, char, char>', 'np.unicode_','U'],
+            'Tuple[float, float, str]': ['tuple<float, float, char>', 'NPY_FLOAT64', 'd'],
+            'Tuple[float, float, int]': ['tuple<float, float, int>', 'NPY_FLOAT64', 'd'],
+            'Tuple[str, float, float]': ['tuple<char, float, float>', 'NPY_FLOAT64', 'd'],
+            'Tuple[int, float, float]': ['tuple<char, float, float>', 'NPY_FLOAT64', 'd'],
+            'Tuple[str, int, int]': ['tuple<char, int, int>', 'NPY_INT64','L'],
+            'Tuple[float, int, int]': ['tuple<float, int, int>', 'NPY_INT64','L'],
+            'Tuple[int, int, str]': ['tuple<int, int, char>', 'NPY_INT64','L'],
+            'Tuple[int, int, float]': ['tuple<int, int, float>', 'NPY_INT64','L'],
+            'Tuple[int, str, int]': ['tuple<int, char, int>', 'NPY_INT64','L'],
+            'Tuple[int, float, int]': ['tuple<int, float, int>', 'NPY_INT64','L'],
+            'Tuple[str, float, str]': ['tuple<char, float, char>', 'np.unicode_','U'],
+            'Tuple[str, int, str]': ['tuple<char, float, char>', 'np.unicode_','U'],
+            'Tuple[float, int, float]': ['tuple<float, int, float>', 'NPY_FLOAT64', 'd'],
+            'Tuple[float, str, float]': ['tuple<float, char, float>', 'NPY_FLOAT64', 'd'],
+            'Set[str]': ['std::set<string>', 'np.unicode_','U'],
+            'Set[int]': ['std::set<int>', 'NPY_INT64','L'],
+            'Set[float]': ['std::set<float>', 'NPY_INT64','L'],
              }
 
 ######################
@@ -293,14 +323,101 @@ def process_array_list(node):
         exit(1)
     return dim
 
+def process_set(node):
+    argty = ArgType()
+    if isinstance(node, ast.Set):
+        varval = []
+        k = ""
+        m = ""
+        for values in node.elts:
+            varval.append(values.value)
+        if isinstance(varval[0], str):
+            k = str
+        elif isinstance(varval[0], int):
+            k = int
+        elif isinstance(varval[0], float):
+            k = float
+        for i in range(len(varval)):
+            if isinstance(varval[i], k):
+                if isinstance(varval[i], str):
+                    if varval.index(varval[i]) == varval.index(varval[-1]):
+                        m = m + "\"%s\"" % varval[i]
+                    else:
+                        m = m + "\"%s\", " % varval[i]
+                elif isinstance(varval[i], int):
+                    if varval.index(varval[i]) == varval.index(varval[-1]):
+                        m = m + "%s" % varval[i]
+                    else:
+                        m = m + "%s, " % varval[i]
+            else:
+                print("Invalid Set declaration")
+                print(ast.dump(node))
+                print('Example declaration:')
+                print('\tvar: c = Set[\'str\']')
+                print('c_tmp = {\'Hello\', \'world\'}')
+                sys.exit(1)
+        argty = "{%s}" % m
+    else:
+        ann = node.slice.value.value
+        if len(ann) > 4:
+            print('Invalid Set annotation')
+            print(ast.dump(node))
+            print('Example annotations:')
+            print('\tvar:Set[\'str\']')
+            sys.exit(1)
+        arg = node.slice.value.value
+        z = "Set[" + arg + "]"
+        argty.primitive = z
+    return argty
+
+def process_tuple(node):
+    argty = ArgType()
+    if isinstance(node, ast.Tuple):
+        m = ""
+        if len(node.elts) == 3:
+            value1 = node.elts[0].value
+            value2 = node.elts[1].value
+            value3 = node.elts[2].value
+        else:
+            print('Invalid Tuple annotation')
+            print(ast.dump(node))
+            print('Example annotations:')
+            print('\tvar:Tuple[\'str\', \'str\',\'str]')
+            sys.exit(1)
+        if isinstance(value1, str):
+            value1 = "\'%s\'" % value1
+        if isinstance(value2, str):
+            value2 = "\'%s\'" % value2
+        if isinstance(value3, str):
+            value3 = "\'%s\'" % value3
+        m = "make_tuple(%s, %s, %s)" % (value1, value2, value3)
+        argty = m
+    else:
+        ann = node.slice.value.elts
+        if len(ann) > 3:
+            print('Invalid Tuple annotation')
+            print(ast.dump(node))
+            print('Example annotations:')
+            print('\tvar:Tuple[\'str\', \'str\',\'str]')
+            sys.exit(1)
+        arg = node.slice.value.elts
+        A = (arg[0])
+        k = (A.s)
+        y = (arg[1])
+        j = (y.s)
+        x = (arg[2])
+        l = (x.s)
+        z = "Tuple[" + k + ", " + j + ", " + l + "]"
+        argty.primitive = z
+    return argty
+
 def process_dict(node):
     argty = ArgType()
     k = ""
     v = ""
     m = ""
-    x = ""
     temp = ""
-    test = ""
+    X = ""
     check = ""
     valtemp = []
     if isinstance(node, ast.Dict):
@@ -355,25 +472,25 @@ def process_dict(node):
                 for i in range(len(value.elts)):
                     if isinstance(value.elts[i], ast.Str) and isinstance(value.elts[i].s, v):
                         if value.elts.index(value.elts[i]) == value.elts.index(value.elts[-1]):
-                            test = test + "\"%s\"" % value.elts[i].s
-                            temp = "{%s}" % test
+                            X = X + "\"%s\"" % value.elts[i].s
+                            temp = "{%s}" % X
                             varval.append(temp)
-                            test = ""
+                            X = ""
                             temp = ""
                             check = "string"
                         else:
-                            test = test + "\"%s\"," % value.elts[i].s
+                            X = X + "\"%s\"," % value.elts[i].s
                             check = "string"
                     elif isinstance(value.elts[i], ast.Num) and isinstance(value.elts[i].n, v):
                         if value.elts.index(value.elts[i]) == value.elts.index(value.elts[-1]):
-                            test = test + "%s" % value.elts[i].n
-                            temp = "{%s}" % test
+                            X = X + "%s" % value.elts[i].n
+                            temp = "{%s}" % X
                             varval.append(temp)
-                            test = ""
+                            X = ""
                             temp = ""
                             check = "integer"
                         else:
-                            test = test + "%s," % value.elts[i].n
+                            X = X + "%s," % value.elts[i].n
                             check = "integer"
                     else:
                         print("Value %s is not of valid type, All the Keys and Values should of same type" % (
@@ -418,6 +535,8 @@ def process_dict(node):
                         m = m + "{%s, \"%s\"}," % (varkey[i], varval[i])
             else:
                 print("Unsupported type for Dict, the supported types are \"String\", \"integer\", \"Float\" ")
+        varkey.clear()
+        varval.clear()
         argty = "{%s}" % (m)
     else:
         ann = node.slice.value.elts
@@ -428,8 +547,8 @@ def process_dict(node):
             print('\tvar:Dict[\'str\',\'str]')
             sys.exit(1)
         arg = node.slice.value.elts
-        x= (arg[0])
-        k = (x.s)
+        A = (arg[0])
+        k = (A.s)
         y = (arg[1])
         j = (y.s)
         z = "Dict[" + k + ", " + j + "]"
@@ -528,6 +647,12 @@ def getType(arg):
     elif isinstance(arg.annotation,ast.Subscript) and isinstance(arg.annotation.value,ast.Name) and arg.annotation.value.id == 'Dict':
             argty = process_dict(arg.annotation)
             argty.category = 'Dict'
+    elif isinstance(arg.annotation,ast.Subscript) and isinstance(arg.annotation.value,ast.Name) and arg.annotation.value.id == 'Tuple':
+            argty = process_tuple(arg.annotation)
+            argty.category = 'Tuple'
+    elif isinstance(arg.annotation,ast.Subscript) and isinstance(arg.annotation.value,ast.Name) and arg.annotation.value.id == 'Set':
+            argty = process_set(arg.annotation)
+            argty.category = 'Set'
     elif arg.annotation == None:
         print('Error! Missing type annotation for arg "%s"' % arg.arg)
         print('Example annotations:')
@@ -717,6 +842,12 @@ class ArgType:
             string = processType(self) + ' ' + self.name + '[' + str(self.size()) + ']'
             return string
         elif self.category == 'Dict':
+            string = processType(self) + ' ' + self.name
+            return string
+        elif self.category == 'Tuple':
+            string = processType(self) + ' ' + self.name
+            return string
+        elif self.category == 'Set':
             string = processType(self) + ' ' + self.name
             return string
         else:

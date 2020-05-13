@@ -1,13 +1,14 @@
 import time
 import numpy as np
-from typing import Dict
+from typing import Dict, Tuple, Set
 import code
 
 
 # Function to be translated (function under test)
 def mmult(a: np.ndarray((32, 32), 'int32'),
           b: np.ndarray((32, 32), 'int32'),
-          c: np.ndarray((32, 32), 'int32')):
+          c: np.ndarray((32, 32), 'int32'),
+          x: Set['int']):
     # Function interface pragmas
     '''
     #pragma SDS data access_pattern(a:SEQUENTIAL, b:SEQUENTIAL, c:SEQUENTIAL)
@@ -17,8 +18,9 @@ def mmult(a: np.ndarray((32, 32), 'int32'),
     # internal partitioned arrays
     A_tmp = np.ndarray((32, 32), 'int32')
     B_tmp = np.ndarray((32, 32), 'int32')
-    v_tmp = Dict['int', 'list[int]']
-    v_tmp = {1:[8123123,92000], 2:[7123123,6213123], 3:[53123,423123]}
+    c_tmp = Set['str']
+    c_tmp = {"hello","world","beautiful"}
+
     '''
     #pragma HLS array_partition variable=A_tmp cyclic factor=16 dim=1
     #pragma HLS array_partition variable=B_tmp block factor=16 dim=1
@@ -31,6 +33,8 @@ def mmult(a: np.ndarray((32, 32), 'int32'),
             '''
             A_tmp[i][j] = a[i][j]
             B_tmp[i][j] = b[i][j]
+            #value assignment
+            c_tmp = x
     # Compute loops
     for i in range(a.shape[0]):
         for j in range(a.shape[1]):

@@ -54,9 +54,11 @@ import ast
 import json
 import argparse
 import pprint
-
+import os
 from pasty import *
 from passes import *
+from astmonkey import visitors, transformers
+import pydot
 
 ##########################
 # convertFunc
@@ -208,7 +210,6 @@ def gen_caller(funcDecl):
 #   writes out function C code into source file
 def convert(node,name):
     code = convert_code(node)
-    
     #write out C code to file
     fp = open(name+'.cpp','w')
     fp.write('#include <math.h>\n')
@@ -284,6 +285,9 @@ def process_func(tree):
         print ('----------------------------------')
     return code
 
+
+
+
 ##########################
 # nested_funcs
 #    iteratively searches for nested functions in target function and translates all to C
@@ -357,9 +361,14 @@ fp = open(file)
 code = fp.read()
 fp.close()
 
+
 #parse python code into abstract syntax tree
 tree = ast.parse(code)
-
+node = tree
+node = transformers.ParentChildNodeTransformer().visit(node)
+visitor = visitors.GraphNodeVisitor()
+visitor.visit(node)
+visitor.graph.write_png('graph.png')
 #root = defuse_pass(tree)
 #graph = root.getGraph()
 #root.printGraph(graph)
@@ -375,21 +384,19 @@ if verbose:
 if args.func:
     #if a function to translate was specified on the cmd line, handle it
     func = args.func
-    fp=open("zuzu.txt","w")
-    fp.write(ast.dump(tree))
-    fp.close()
     #setup nested functions 
     (c,h) = nested_funcs(tree,func)
-    
     fp = open(outfile+'.h','w')
     fp.write('#include <stdint.h>\n')
     fp.write('#include <math.h>\n')
     fp.write('#include <string>\n')
+    fp.write('#include <vector>\n')
+    fp.write('#include <tuple>\n')
+    fp.write('#include <set>\n')
     fp.write('#include <unordered_map>\n')
     fp.write('using namespace std;\n')
     fp.write(h)
     fp.close()
-
     fp = open(outfile+'.cpp','w')
     fp.write('#include "%s.h"\n\n' % outfile)
     fp.write(c)

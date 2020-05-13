@@ -1,44 +1,121 @@
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import numpy as np
+import ast
+import graphviz as gv
+import subprocess
+import numbers
+import re
+from uuid import uuid4 as uuid
+import optparse
+import sys
 
-#defining figure and size
-fig, ax = plt.subplots(figsize=(10, 10))
+def visualize(code):
+    code_ast = code
+    transformed_ast = transform_ast(code_ast)
+    label = "Ast tree"
 
-#declating lists for values in the dataset starting position (x,y,z) and relative movement (u,v,w)
-#since z and w are null ignoring them
-X, Y, U, V, N = [],[],[],[],[]
+    renderer = GraphRenderer()
+    renderer.render(transformed_ast, label=label)
 
-#Open the file and readlines
-with open("C:\\Users\\Vivek\Desktop\\2020-vivek-jaganath\\Code\\spicy-extended\\bin\\src\\field2.irreg.txt", "r") as f:
-    rows = f.readlines()[6:] #ignoring the firts 6 values to get consistent plotting and to avoind indexing while itterating over elements
-for line in rows:
-    J = line.split(" ")
-    X.append(float(J[0])) #filling the list with values from dataset
-    Y.append(float(J[1]))
-    U.append(float(J[3]))
-    V.append(float(J[4]))
-x1 = np.asarray(X) #converting the list to numpy array to easily work on even larger datasets
-y1 = np.asarray(Y)
-u1 = np.asarray(U)
-v1 = np.asarray(V)
 
-for i in range(len(u1)):
-    N.append(np.sqrt(u1[i]**2)+(v1[i]**2)) #calculating the length of vectors as discussed in the lectures
-n1 = np.asarray(N)
+def transform_ast(code_ast):
+    if isinstance(code_ast, ast.AST):
+        node = {to_camelcase(k): transform_ast(getattr(code_ast, k)) for k in code_ast._fields}
+        node['node_type'] = to_camelcase(code_ast.__class__.__name__)
+        return node
+    elif isinstance(code_ast, list):
+        return [transform_ast(el) for el in code_ast]
+    else:
+        return code_ast
 
-#Plotting the values
-#refrence 1: https://problemsolvingwithpython.com/06-Plotting-with-Matplotlib/06.15-Quiver-and-Stream-Plots/
-#reference 2: https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.pyplot.colorbar.html
-#reference 3: https://jakevdp.github.io/PythonDataScienceHandbook/04.07-customizing-colorbars.html
-plt.quiver(x1, y1, u1, v1, n1, scale=6)
-ax.set_title('Direction of Water in Tunnel')
-ax.set_aspect('equal')
-plt.axis([0, 1, 0, 1])
-cax = fig.add_axes([0.78,0.078,0.01,0.85])
-cbx = mpl.colorbar.ColorbarBase(cax, orientation = 'vertical')
-cbx.set_ticks([0,0.5,1])
-cbx.set_ticklabels(['Low', 'Medium', 'High'])
-cbx.set_label('Velocity of water in tunnel')
-plt.tight_layout()
-plt.show()
+
+def to_camelcase(string):
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', string).lower()
+
+
+class GraphRenderer:
+    """
+    this class is capable of rendering data structures consisting of
+    dicts and lists as a graph using graphviz
+    """
+
+    graphattrs = {
+        'labelloc': 't',
+        'fontcolor': 'white',
+        'bgcolor': '#333333',
+        'margin': '0',
+    }
+
+    nodeattrs = {
+        'color': 'white',
+        'fontcolor': 'white',
+        'style': 'filled',
+        'fillcolor': '#006699',
+    }
+
+    edgeattrs = {
+        'color': 'white',
+        'fontcolor': 'white',
+    }
+
+    _graph = None
+    _rendered_nodes = None
+
+
+    @staticmethod
+    def _escape_dot_label(str):
+        return str.replace("\\", "\\\\").replace("|", "\\|").replace("<", "\\<").replace(">", "\\>")
+
+
+    def _render_node(self, node):
+        if isinstance(node, (str, numbers.Number)) or node is None:
+            node_id = uuid()
+        else:
+            node_id = id(node)
+        node_id = str(node_id)
+
+        if node_id not in self._rendered_nodes:
+            self._rendered_nodes.add(node_id)
+            if isinstance(node, dict):
+                self._render_dict(node, node_id)
+            elif isinstance(node, list):
+                self._render_list(node, node_id)
+            else:
+                self._graph.node(node_id, label=self._escape_dot_label(str(node)))
+
+        return node_id
+
+
+    def _render_dict(self, node, node_id):
+        self._graph.node(node_id, label=node.get("node_type", "[dict]"))
+        for key, value in node.items():
+            if key == "node_type":
+                continue
+            child_node_id = self._render_node(value)
+            self._graph.edge(node_id, child_node_id, label=self._escape_dot_label(key))
+
+
+    def _render_list(self, node, node_id):
+        self._graph.node(node_id, label="[list]")
+        for idx, value in enumerate(node):
+            child_node_id = self._render_node(value)
+            self._graph.edge(node_id, child_node_id, label=self._escape_dot_label(str(idx)))
+
+
+    def render(self, data, *, label=None):
+        # create the graph
+        graphattrs = self.graphattrs.copy()
+        if label is not None:
+            graphattrs['label'] = self._escape_dot_label(label)
+        graph = gv.Digraph(graph_attr = graphattrs, node_attr = self.nodeattrs, edge_attr = self.edgeattrs)
+
+        # recursively draw all the nodes and edges
+        self._graph = graph
+        self._rendered_nodes = set()
+        self._render_node(data)
+        self._graph = None
+        self._rendered_nodes = None
+
+        # display the graph
+        graph.format = "pdf"
+        graph.view()
+        subprocess.Popen(['xdg-open', "test.pdf"])
+

@@ -1,7 +1,7 @@
 #include "mmult.h"
 
-void mmult_caller(int32_t a[1024],int32_t b[1024],int32_t c[1024]) {
+void mmult_caller(int32_t a[1024],int32_t b[1024],int32_t c[1024],std::set<int> x) {
    /* call function */
-   mmult(a,b,c);
+   mmult(a,b,c,x);
 
 }
